@@ -30,20 +30,22 @@ namespace ConsoleAppPageListCreater
         void AddPage(int count, bool isPrint, string comment, bool isInterleave);
         /// <summary>
         /// 지정한 위치에 페이지를 추가한다.
+        /// 2 입력시 1,{여기에 2로 추가된다.},3{2를 3으로 조정한다},4{3을 4로 조정한다.}
         /// </summary>
-        /// <param name="pageNumber">지정한 페이지 위에 뒤에 끼워넣는다. 1 입력시 0,{여기에 추가된다.},1</param>
+        /// <param name="pageNumber">지정한 페이지를 대체하고 추가된다.</param>
         /// <param name="count">페이지수</param>
         /// <param name="isPrint">출력여부</param>
         /// <param name="comment">코멘트</param>
         void InsertPage(int pageNumber, int count, bool isPrint, string comment);
         /// <summary>
         /// 지정한 위치에 페이지를 추가한다.
+        /// 2 입력시 1,2,3{여기에 추가된다.},4{3을 4로 조정한다.}
         /// </summary>
-        /// <param name="pageNumber">지정한 페이지 위에 뒤에 끼워넣는다. 1 입력시 0,{여기에 추가된다.},1</param>
+        /// <param name="pageNumber">지정한 페이지 뒤에 끼워넣는다. 1 입력시 0,{여기에 추가된다.},1</param>
         /// <param name="count">페이지수</param>
         /// <param name="isPrint">출력여부</param>
         /// <param name="comment">코멘트</param>
-        /// <param name="isInterleave">끼워넣은 백지 페이지 여부(채번안함)</param>
+        /// <param name="isInterleave">True 이면 뒷페이지에 페이지를 추가한다. False 이면 앞페이지로 추가한다.</param>
         void InsertPage(int pageNumber, int count, bool isPrint, string comment, bool isInterleave);
         /// <summary>
         /// 출력여부가 True인 항목들
@@ -60,16 +62,15 @@ namespace ConsoleAppPageListCreater
         bool HasPrint { get; }
 
         List<PageModel> Pages { get; }
-
         /// <summary>
-        /// 끼워넣기 페이지 목록
+        /// 끼워넣기 페이지 목록의 Index List를 반환한다.
+        /// PageNumbers의 인덱스 임을 유의하자
         /// </summary>
         int[] InterleavePageNumbers { get; }
         /// <summary>
         /// 끼워넣기 페이지 수
         /// </summary>
         int InterleavePageCount { get; }
-
         /// <summary>
         /// 논리적인 페이지번호를 물리적인(끼워넣는 페이지 번호 포함된 페이지로 변환)
         /// </summary>
@@ -161,7 +162,7 @@ namespace ConsoleAppPageListCreater
                 return;
             }
 
-            _pageModels.Add(new PageModel { Sequence = _index++, PageCount = 1, IsPrint = isPrint, Comment = comment, IsInterleave = isInterleave });
+            _pageModels.Add(new PageModel { Sequence = _index++, PageCount = count, IsPrint = isPrint, Comment = comment, IsInterleave = isInterleave });
         }
 
         int FindIndexByPageNumber(int pageNumber, bool ignoreInterleave = false)
@@ -172,7 +173,6 @@ namespace ConsoleAppPageListCreater
             {
                 // 끼워넣기 페이지 무시 옵션을 사용하면,
                 if(ignoreInterleave)
-                    // 끼워넣은 페이지 무시
                     if(page.IsInterleave)
                         continue;
 
@@ -207,10 +207,15 @@ namespace ConsoleAppPageListCreater
             // NOTE: targetPageNumber 보다 큰 Sequence 를 가진 페이지를 모두 조정한다.
             _pageModels.Where(m => m.Sequence >= index).ToList().ForEach(
                 p => {
-                    p.Sequence += 1;
+                    p.Sequence += count;
                 });
-            // 추가하려는 순번 이후에 순번은 모두 증가시킨다.
-            _pageModels.Insert(index, new PageModel() { Sequence = index, PageCount = count, Comment = comment });
+
+            // NOTE: 삽입된 페이지수 만큼 Cursor 도 증가시킨다.
+            _index += count;
+
+            // NOTE: 추가하려는 순번 이후에 순번은 모두 증가시킨다.
+            foreach(int page in Enumerable.Range(1, count))
+                _pageModels.Insert(index + page - 1, new PageModel { Sequence = index + page - 1, PageCount = 1, IsPrint = isPrint, Comment = comment });
         }
 
         public void InsertPage(int pageNumber, int count, bool isPrint, string comment, bool isInterleave)
@@ -230,6 +235,9 @@ namespace ConsoleAppPageListCreater
                 p => {
                     p.Sequence += 1;
                 });
+
+            // NOTE: Cursor 도 증가시킨다.
+            _index++;
 
             // NOTE: 끼워넣는 페이지는 찾은 index 뒤로 입력한다.
             _pageModels.Insert(index + 1, new PageModel { Sequence = index + 1, PageCount = count, IsPrint = isPrint, Comment = comment, IsInterleave = isInterleave });
@@ -267,21 +275,38 @@ namespace ConsoleAppPageListCreater
             foreach (var no in pages)
             {
                 var index = FindIndexByPageNumber(no, true);
-                //var physicalPageNo = _pageModels.Where(p => p.Sequence <= index).Sum(f => f.PageCount);
 
                 var beginPage = _pageModels.Where(p => p.Sequence < index).Sum(f => f.PageCount);
-                var pageCount = _pageModels.Find(p => p.Sequence == index).PageCount;
-                var endPage = beginPage + pageCount;
+                var currentItem = _pageModels.Find(p => p.Sequence == index);
+                var endPage = beginPage + currentItem.PageCount;
 
-                var page = beginPage + FIRSTPAGENO;
+                var firstPage = beginPage + FIRSTPAGENO;
+
+                // NOTE:페이지 번호(+1)를 더해줘야 페이지번호가 되고 더하지 않으면 Index를 반환한다.
+                // foreach(int page in Enumerable.Range(beginPage + FIRSTPAGENO, pageCount))
+                if(!returnPages.Contains(firstPage))
+                    returnPages.Add(firstPage);
 
 
-                //페이지 번호(+1)를 더해줘야 페이지번호가 되고 더하지 않으면 Index를 반환한다.
-                //foreach(int page in Enumerable.Range(beginPage + FIRSTPAGENO, pageCount))
-                if(!returnPages.Contains(page))
-                    returnPages.Add(page);
-                else
-                    returnPages.Add(endPage);
+                // NOTE:검색된 페이지번호 다음에 끼워넣기 페이지가 있으면 출력할 페이지에 포함한다.
+                // 18 Index -> 다음 19 Index에 특이사항 공정'
+                var nextItem = _pageModels.Find(m => m.Sequence == currentItem.Sequence + 1);
+                if(nextItem is null)
+                    continue;
+                // CONDITION: 끼워넣기 페이지가 아니면 건너띄기
+                if(!nextItem.IsInterleave)
+                    continue;
+
+                var nextIndex = nextItem.Sequence;
+
+                var nextBeginPage = _pageModels.Where(p => p.Sequence < nextIndex).Sum(f => f.PageCount);
+                var nextFirstPage = nextBeginPage + FIRSTPAGENO;
+                foreach(int nextPageNO in Enumerable.Range(nextFirstPage, nextItem.PageCount))
+                {
+                    if(!returnPages.Contains(nextPageNO))
+                        returnPages.Add(nextPageNO);
+                }
+
             }
 
             return returnPages.ToArray();

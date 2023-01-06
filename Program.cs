@@ -18,12 +18,12 @@ namespace ConsoleAppPageListCreater
             List<Tuple<int, string, bool>> TOCs = new List<Tuple<int, string, bool>>();
             TOCs.Add(new Tuple<int, string, bool>(4, "사용 원액 확인 및 사용량 계산", false));
             TOCs.Add(new Tuple<int, string, bool>(8, "원자재 및 분량 확인", false));
-            TOCs.Add(new Tuple<int, string, bool>(6, "제조준비", true));
+            TOCs.Add(new Tuple<int, string, bool>(6, "제조준비", false));
             TOCs.Add(new Tuple<int, string, bool>(7, "동결건조", false));
 
             // item1 : 페이지번호,  item2 : 페이지숫자,  item3 : 코멘트
             List<Tuple<int, int, string>> ATTs = new List<Tuple<int, int, string>>();
-            ATTs.Add(new Tuple<int, int, string>(3, 2, "원자재 확인"));
+            ATTs.Add(new Tuple<int, int, string>(3, 4, "원자재 확인"));
             ATTs.Add(new Tuple<int, int, string>(7, 2, "이물검사"));
 
 
@@ -169,12 +169,22 @@ namespace ConsoleAppPageListCreater
             //}
             //Console.WriteLine("END--------------");
 
+
+
             //Console.WriteLine("BEGIN Print Numbering Simulation--------------");
             //sbjeon20220818_MES2022(4.3) 특이 사항 발생 시 해당 공정에 내용 작성, EBR 발행 시 내용 기재
             Console.WriteLine("입력한 페이지(logical) -> 출력가능한 페이지(Physical) 로 변환하여 출력 시뮬레이션");
-            Console.WriteLine("BEGIN--------------");
             // 출력 시물레이션 (입력한 페이지번호가 출력되는지 검증)
-            string pageInfo = @"1-2,5,7,9,16-18";
+            string pageInfo = @"1-2,4,17";
+            Console.WriteLine($"출력할 페이지번호를 입력하세요. 입력하지 않고 Enter Key를 클릭하면 {pageInfo} 페이지가 입력됩니다.");
+            var input = Console.ReadLine();
+
+
+            Console.WriteLine("BEGIN--------------");
+
+            if(!string.IsNullOrEmpty(input))
+                pageInfo = input;
+
             Console.WriteLine($"Input Logical Pages : {pageInfo}");
             var pages = PrintHelper.TextToPages(pageInfo);
             string physicalPage = "";
@@ -186,6 +196,7 @@ namespace ConsoleAppPageListCreater
                 physicalPage = PrintHelper.UnionPagesText(physicalPage, pageConverter.ToString());
                 Console.WriteLine($"Convert With Merge Print Pages : {physicalPage}");
             }
+
             int[] printPage = PrintHelper.TextToPages(physicalPage);
             List<string> printedPages = new List<string>();
             for(int i = 0; i < ebrPages.Max(m => m.PageNumber); ++i)
@@ -200,7 +211,19 @@ namespace ConsoleAppPageListCreater
                 }
             }
 
-            printedPages.ForEach(p => Console.WriteLine(p));
+            printedPages.ForEach(p => {
+
+                if(p.Contains("특이사항"))
+                    Console.ForegroundColor = ConsoleColor.Red;
+
+                if(p.Contains("별도양식"))
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+
+                Console.WriteLine(p);
+
+                Console.ResetColor();
+
+            });
 
             Console.WriteLine("END--------------");
 
